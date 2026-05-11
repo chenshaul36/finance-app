@@ -1702,30 +1702,56 @@ async function deployToGitHub(){
   btn.textContent='⏳ Deploying…';btn.disabled=true;
   setDeployStatus('Getting current file info…','var(--muted)');
 
+  // Robust base64 encoding that handles Hebrew and all Unicode
+  function toBase64(str){
+    const bytes=new TextEncoder().encode(str);
+    let binary='';
+    bytes.forEach(b=>binary+=String.fromCharCode(b));
+    return btoa(binary);
+  }
+
+  const headers={
+    'Authorization':'Bearer '+token,
+    'Accept':'application/vnd.github+json',
+    'Content-Type':'application/json',
+    'X-GitHub-Api-Version':'2022-11-28'
+  };
+
   try{
-    // Get current SHA
-    const infoRes=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/index.html`,
-      {headers:{Authorization:`token ${token}`,'Accept':'application/vnd.github.v3+json'}});
+    // Step 1: Get current file SHA
+    setDeployStatus('Connecting to GitHub…','var(--muted)');
+    const infoRes=await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/index.html`,
+      {method:'GET',headers}
+    );
+    if(!infoRes.ok){
+      const e=await infoRes.json();
+      setDeployStatus('❌ '+(e.message||'Cannot access repo — check token and repo name'),'var(--red)');
+      btn.textContent='🚀 Deploy to GitHub';btn.disabled=false;return;
+    }
     const info=await infoRes.json();
-    if(!info.sha){setDeployStatus('❌ Could not find index.html in repo','var(--red)');btn.textContent='🚀 Deploy to GitHub';btn.disabled=false;return;}
 
-    // Update file
-    const encoded=btoa(unescape(encodeURIComponent(content)));
-    const updateRes=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/index.html`,{
-      method:'PUT',
-      headers:{Authorization:`token ${token}`,'Content-Type':'application/json'},
-      body:JSON.stringify({message:`Update app ${new Date().toLocaleDateString()}`,content:encoded,sha:info.sha})
-    });
-
+    // Step 2: Push new content
+    setDeployStatus('Uploading new version…','var(--muted)');
+    const updateRes=await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/index.html`,
+      {method:'PUT',headers,
+       body:JSON.stringify({
+         message:`Update app ${new Date().toLocaleDateString()}`,
+         content:toBase64(content),
+         sha:info.sha
+       })
+      }
+    );
     if(updateRes.ok){
-      setDeployStatus('✅ Deployed! Vercel will update in ~10 seconds','var(--green)');
+      setDeployStatus('✅ Deployed! Vercel updates in ~10 seconds','var(--green)');
       document.getElementById('gh-content').value='';
     } else {
-      const err=await updateRes.json();
-      setDeployStatus('❌ '+(err.message||'Deploy failed'),'var(--red)');
+      const e=await updateRes.json();
+      setDeployStatus('❌ '+(e.message||'Deploy failed'),'var(--red)');
     }
   }catch(e){
-    setDeployStatus('❌ Error: '+e.message,'var(--red)');
+    setDeployStatus('❌ Network error — check your internet connection','var(--red)');
   }
   btn.textContent='🚀 Deploy to GitHub';btn.disabled=false;
 }
