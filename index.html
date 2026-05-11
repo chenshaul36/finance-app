@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
@@ -484,6 +485,7 @@ html,body{background:var(--bg);color:var(--text);font-family:-apple-system,Blink
     <button class="tab active" onclick="showView('overview')">Overview</button>
     <button class="tab"        onclick="showView('expenses')">Expenses</button>
     <button class="tab"        onclick="showView('savings')">Savings</button>
+    <button class="tab"        onclick="showView('settings')">⚙️</button>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <div id="sync-dot" title="Sync status"
@@ -492,7 +494,83 @@ html,body{background:var(--bg);color:var(--text);font-family:-apple-system,Blink
   </div>
 </nav>
 
-<!-- Mobile done toolbar — appears above keyboard when editing -->
+<!-- ── SETTINGS ── -->
+<div class="view" id="view-settings">
+  <div class="sh">
+    <div>
+      <div class="st">Settings</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">GitHub deployment &amp; data management</div>
+    </div>
+  </div>
+
+  <!-- GitHub Deploy -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;box-shadow:var(--shadow)">
+    <div style="padding:14px 18px;background:var(--bg);border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700">🚀 Deploy to GitHub</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">Paste a new index.html and deploy directly — no file upload needed</div>
+    </div>
+    <div style="padding:18px">
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">GitHub Personal Access Token</label>
+        <input id="gh-token" type="password" placeholder="ghp_xxxxxxxxxxxx"
+          style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;font-family:inherit"
+          value="" oninput="saveGhSettings()"/>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">
+          Create at github.com → Settings → Developer settings → Personal access tokens → check <strong>repo</strong>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">GitHub Username</label>
+          <input id="gh-owner" type="text" placeholder="chenshaul36"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;font-family:inherit"
+            oninput="saveGhSettings()"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">Repo Name</label>
+          <input id="gh-repo" type="text" placeholder="finance-app"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;font-family:inherit"
+            oninput="saveGhSettings()"/>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">Paste new index.html here</label>
+        <textarea id="gh-content" placeholder="Paste the full index.html content from Claude here..."
+          style="width:100%;height:100px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:12px;font-family:monospace;resize:vertical"></textarea>
+      </div>
+      <button class="btn bp" onclick="deployToGitHub()" id="deploy-btn" style="width:100%;padding:12px;font-size:14px;border-radius:10px">
+        🚀 Deploy to GitHub
+      </button>
+      <div id="deploy-status" style="margin-top:10px;font-size:13px;text-align:center;display:none"></div>
+    </div>
+  </div>
+
+  <!-- Data Management -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;box-shadow:var(--shadow)">
+    <div style="padding:14px 18px;background:var(--bg);border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700">💾 Data Management</div>
+    </div>
+    <div style="padding:18px;display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-g" onclick="exportData()" style="justify-content:flex-start;gap:10px">
+        ⬇ Export data as JSON backup
+      </button>
+      <button class="btn btn-g" onclick="document.getElementById('import-file').click()" style="justify-content:flex-start;gap:10px">
+        ⬆ Import data from JSON
+      </button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)"/>
+      <button class="btn" onclick="forceSyncNow()" style="justify-content:flex-start;gap:10px;background:rgba(35,131,226,.08);color:var(--accent);border:1px solid var(--accent)">
+        🔄 Force sync with Firebase now
+      </button>
+    </div>
+  </div>
+
+  <!-- Sync status -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow)">
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px">🟢 Sync status</div>
+    <div style="font-size:13px;color:var(--muted)">Firebase: <strong id="settings-db-url" style="color:var(--text);word-break:break-all"></strong></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px">Syncs every 5 seconds + instantly on app focus</div>
+  </div>
+</div>
 <div class="mob-done-bar" id="mob-done-bar">
   <span class="mob-done-label" id="mob-done-label">Editing</span>
   <button class="mob-done-btn" onclick="commitCell(true)">Done ✓</button>
@@ -718,14 +796,12 @@ function syncDot(s){
 }
 
 function load(){
-  // Load local immediately so app starts fast
   try{
     const s=localStorage.getItem('mf10');
     D=s?JSON.parse(s):deep(DEF);
     if(!D.extraIncome)D.extraIncome=[];
     if(!D.template)D.template=[];
   }catch(e){D=deep(DEF);}
-  // Then fetch latest from Firebase
   syncDot('loading');
   fetch(DB).then(r=>r.json()).then(data=>{
     if(data&&typeof data==='object'&&data.expenses){
@@ -733,14 +809,22 @@ function load(){
       if(!D.extraIncome)D.extraIncome=[];
       if(!D.template)D.template=[];
       localStorage.setItem('mf10',JSON.stringify(D));
-    } else { _push(); } // first time — push defaults to Firebase
+      // Auto-fill current month AFTER Firebase data loaded, then save
+      autoFill(expM,true);
+    } else {
+      // First time — auto-fill then push defaults to Firebase
+      autoFill(expM,false);
+      _push();
+    }
     syncDot('saved');
-    // Re-render with fresh data
     const v=document.querySelector('.view.active')?.id?.replace('view-','');
     if(v==='overview')renderOv();
     if(v==='expenses')renderEx();
     if(v==='savings')renderSav();
-  }).catch(()=>syncDot('offline'));
+  }).catch(()=>{
+    autoFill(expM,false); // offline — fill locally, don't push
+    syncDot('offline');
+  });
 }
 
 function sv(){
@@ -768,12 +852,14 @@ function _startSync(){
 function _fetchAndUpdate(){
   fetch(DB).then(r=>r.json()).then(data=>{
     if(!data||typeof data!=='object')return;
-    if(JSON.stringify(data)===JSON.stringify(D))return; // no change
+    if(JSON.stringify(data)===JSON.stringify(D))return;
     D=data;
     if(!D.extraIncome)D.extraIncome=[];
     if(!D.template)D.template=[];
     localStorage.setItem('mf10',JSON.stringify(D));
     syncDot('saved');
+    // Don't re-render if user is actively typing in a cell
+    if(activeCell)return;
     const v=document.querySelector('.view.active')?.id?.replace('view-','');
     if(v==='overview')renderOv();
     if(v==='expenses')renderEx();
@@ -826,15 +912,14 @@ function totForCalc(ym){
   return 0;
 }
 
-function autoFill(ym){
+function autoFill(ym,pushAfter=false){
   if(D.expenses[ym]&&D.expenses[ym].length)return;
-  // Scan backwards up to 24 months to find the most recent month with data
   let m=prevM(ym);
   for(let i=0;i<24;i++){
     const src=D.expenses[m];
     if(src&&src.length){
       D.expenses[ym]=src.map(e=>({...e,id:'e'+Date.now()+(Math.random()*999|0)}));
-      sv();
+      if(pushAfter)sv(); // only save if explicitly requested
       return;
     }
     m=prevM(m);
@@ -846,12 +931,13 @@ function showView(n){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('view-'+n).classList.add('active');
-  document.querySelectorAll('.tab')[{overview:0,expenses:1,savings:2}[n]].classList.add('active');
-  if(n==='overview')renderOv();
-  if(n==='expenses')renderEx();
-  if(n==='savings') renderSav();
+  document.querySelectorAll('.tab')[{overview:0,expenses:1,savings:2,settings:3}[n]].classList.add('active');
+  if(n==='overview') renderOv();
+  if(n==='expenses') renderEx();
+  if(n==='savings')  renderSav();
+  if(n==='settings') renderSettings();
 }
-function goMonth(ym){expM=ym;autoFill(ym);showView('expenses');}
+function goMonth(ym){expM=ym;autoFill(ym,true);showView('expenses');}
 function toggleTheme(){
   const d=!dk();
   document.documentElement.setAttribute('data-theme',d?'dark':'light');
@@ -879,9 +965,9 @@ function refreshOvCards(){
   }
   const stats=document.getElementById('hero-stats');
   if(stats){
-    const sv=stats.querySelectorAll('.hs-val');
-    if(sv[1])sv[1].textContent='−'+f(p.exp1);
-    if(sv[2]){sv[2].textContent=f(p.delta);sv[2].className='hs-val '+(p.delta>=0?'hs-green':'hs-red');}
+    const statVals=stats.querySelectorAll('.hs-val');
+    if(statVals[1])statVals[1].textContent='−'+f(p.exp1);
+    if(statVals[2]){statVals[2].textContent=f(p.delta);statVals[2].className='hs-val '+(p.delta>=0?'hs-green':'hs-red');}
   }
 }
 
@@ -1037,8 +1123,8 @@ function addX(){
 function delX(id){D.extraIncome=(D.extraIncome||[]).filter(e=>e.id!==id);sv();renderOv();}
 
 // ── EXPENSES ──────────────────────────────────────────────
-function expPrev(){activeCell=null;expM=prevM(expM);autoFill(expM);renderEx();}
-function expNext(){activeCell=null;expM=nextM(expM);autoFill(expM);renderEx();}
+function expPrev(){activeCell=null;expM=prevM(expM);autoFill(expM,true);renderEx();}
+function expNext(){activeCell=null;expM=nextM(expM);autoFill(expM,true);renderEx();}
 
 function renderEx(){
   activeCell=null;
@@ -1585,6 +1671,101 @@ function deleteMobileRow(){
   closeMobileSheet();
 }
 
+// ── SETTINGS ──────────────────────────────────────────────
+function renderSettings(){
+  const gh=JSON.parse(localStorage.getItem('gh_settings')||'{}');
+  document.getElementById('gh-token').value=gh.token||'';
+  document.getElementById('gh-owner').value=gh.owner||'chenshaul36';
+  document.getElementById('gh-repo').value=gh.repo||'finance-app';
+  document.getElementById('settings-db-url').textContent=DB.replace('/data.json','');
+}
+
+function saveGhSettings(){
+  localStorage.setItem('gh_settings',JSON.stringify({
+    token:document.getElementById('gh-token').value.trim(),
+    owner:document.getElementById('gh-owner').value.trim(),
+    repo:document.getElementById('gh-repo').value.trim()
+  }));
+}
+
+async function deployToGitHub(){
+  const gh=JSON.parse(localStorage.getItem('gh_settings')||'{}');
+  const token=document.getElementById('gh-token').value.trim()||gh.token;
+  const owner=document.getElementById('gh-owner').value.trim()||gh.owner||'chenshaul36';
+  const repo=document.getElementById('gh-repo').value.trim()||gh.repo||'finance-app';
+  const content=document.getElementById('gh-content').value.trim();
+
+  if(!token){setDeployStatus('❌ Please enter your GitHub token','var(--red)');return;}
+  if(!content){setDeployStatus('❌ Please paste the index.html content','var(--red)');return;}
+
+  const btn=document.getElementById('deploy-btn');
+  btn.textContent='⏳ Deploying…';btn.disabled=true;
+  setDeployStatus('Getting current file info…','var(--muted)');
+
+  try{
+    // Get current SHA
+    const infoRes=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/index.html`,
+      {headers:{Authorization:`token ${token}`,'Accept':'application/vnd.github.v3+json'}});
+    const info=await infoRes.json();
+    if(!info.sha){setDeployStatus('❌ Could not find index.html in repo','var(--red)');btn.textContent='🚀 Deploy to GitHub';btn.disabled=false;return;}
+
+    // Update file
+    const encoded=btoa(unescape(encodeURIComponent(content)));
+    const updateRes=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/index.html`,{
+      method:'PUT',
+      headers:{Authorization:`token ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({message:`Update app ${new Date().toLocaleDateString()}`,content:encoded,sha:info.sha})
+    });
+
+    if(updateRes.ok){
+      setDeployStatus('✅ Deployed! Vercel will update in ~10 seconds','var(--green)');
+      document.getElementById('gh-content').value='';
+    } else {
+      const err=await updateRes.json();
+      setDeployStatus('❌ '+(err.message||'Deploy failed'),'var(--red)');
+    }
+  }catch(e){
+    setDeployStatus('❌ Error: '+e.message,'var(--red)');
+  }
+  btn.textContent='🚀 Deploy to GitHub';btn.disabled=false;
+}
+
+function setDeployStatus(msg,color){
+  const el=document.getElementById('deploy-status');
+  el.style.display='block';el.style.color=color||'inherit';el.textContent=msg;
+}
+
+function exportData(){
+  const blob=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`finance-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(data.expenses){D=data;sv();renderOv();alert('Data imported successfully!');}
+      else alert('Invalid backup file');
+    }catch(err){alert('Could not read file');}
+  };
+  reader.readAsText(file);
+}
+
+function forceSyncNow(){
+  syncDot('loading');
+  fetch(DB).then(r=>r.json()).then(data=>{
+    if(data&&typeof data==='object'&&data.expenses){
+      D=data;localStorage.setItem('mf10',JSON.stringify(D));syncDot('saved');
+      alert('Synced! Data is up to date.');
+    }
+  }).catch(()=>{syncDot('offline');alert('Offline — could not sync');});
+}
+
 // ── MOBILE SCROLL HELPERS ─────────────────────────────────
 function scrollToCell(el){
   if(!el)return;
@@ -1608,9 +1789,8 @@ if(window.visualViewport){
 }
 
 // ── INIT ──────────────────────────────────────────────────
-load();
+load(); // autoFill runs inside load() after Firebase data arrives
 expM=nowYM();
-autoFill(expM);
 const _t=localStorage.getItem('mf10_t')||'light';
 document.documentElement.setAttribute('data-theme',_t);
 document.getElementById('tbtn').textContent=_t==='dark'?'🌙':'☀️';
