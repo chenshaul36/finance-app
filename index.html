@@ -485,7 +485,11 @@ html,body{background:var(--bg);color:var(--text);font-family:-apple-system,Blink
     <button class="tab"        onclick="showView('expenses')">Expenses</button>
     <button class="tab"        onclick="showView('savings')">Savings</button>
   </div>
-  <button class="tbtn" id="tbtn" onclick="toggleTheme()">☀️</button>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div id="sync-dot" title="Sync status"
+      style="width:8px;height:8px;border-radius:50%;background:#9ca3af;flex-shrink:0;transition:background .3s"></div>
+    <button class="tbtn" id="tbtn" onclick="toggleTheme()">☀️</button>
+  </div>
 </nav>
 
 <!-- Mobile done toolbar — appears above keyboard when editing -->
@@ -704,11 +708,71 @@ const SWS=['#1e3a8a','#1d4ed8','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'
            '#0f766e','#0d9488','#14b8a6','#7c3aed','#9333ea','#a855f7',
            '#be185d','#db2777','#b45309','#d97706','#374151','#6b7280'];
 
-function load(){
-  try{const s=localStorage.getItem('mf10');D=s?JSON.parse(s):deep(DEF);if(!D.extraIncome)D.extraIncome=[];if(!D.template)D.template=[];}
-  catch(e){D=deep(DEF);}
+// ── FIREBASE SYNC ─────────────────────────────────────────
+const DB='https://finance-app-ec0c2-default-rtdb.firebaseio.com/data.json';
+
+function syncDot(s){
+  const el=document.getElementById('sync-dot');if(!el)return;
+  el.style.background={saving:'#f59e0b',saved:'#10b981',error:'#ef4444',offline:'#9ca3af',loading:'#f59e0b'}[s]||'#9ca3af';
+  el.title={saving:'Saving…',saved:'Synced ✓',error:'Saved locally (offline)',offline:'Offline',loading:'Loading…'}[s]||'';
 }
-function sv(){localStorage.setItem('mf10',JSON.stringify(D));}
+
+function load(){
+  // Load local immediately so app starts fast
+  try{
+    const s=localStorage.getItem('mf10');
+    D=s?JSON.parse(s):deep(DEF);
+    if(!D.extraIncome)D.extraIncome=[];
+    if(!D.template)D.template=[];
+  }catch(e){D=deep(DEF);}
+  // Then fetch latest from Firebase
+  syncDot('loading');
+  fetch(DB).then(r=>r.json()).then(data=>{
+    if(data&&typeof data==='object'&&data.expenses){
+      D=data;
+      if(!D.extraIncome)D.extraIncome=[];
+      if(!D.template)D.template=[];
+      localStorage.setItem('mf10',JSON.stringify(D));
+    } else { _push(); } // first time — push defaults to Firebase
+    syncDot('saved');
+    // Re-render with fresh data
+    const v=document.querySelector('.view.active')?.id?.replace('view-','');
+    if(v==='overview')renderOv();
+    if(v==='expenses')renderEx();
+    if(v==='savings')renderSav();
+  }).catch(()=>syncDot('offline'));
+}
+
+function sv(){
+  localStorage.setItem('mf10',JSON.stringify(D)); // instant local backup
+  _push();
+}
+
+function _push(){
+  syncDot('saving');
+  fetch(DB,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(D)})
+    .then(()=>syncDot('saved')).catch(()=>syncDot('error'));
+}
+
+// Poll every 30s — picks up changes made on other devices
+function _startSync(){
+  setInterval(()=>{
+    fetch(DB).then(r=>r.json()).then(data=>{
+      if(!data||typeof data!=='object')return;
+      if(JSON.stringify(data)===JSON.stringify(D))return; // no change
+      D=data;
+      if(!D.extraIncome)D.extraIncome=[];
+      if(!D.template)D.template=[];
+      localStorage.setItem('mf10',JSON.stringify(D));
+      syncDot('saved');
+      const v=document.querySelector('.view.active')?.id?.replace('view-','');
+      if(v==='overview')renderOv();
+      if(v==='expenses')renderEx();
+      if(v==='savings')renderSav();
+    }).catch(()=>{});
+  },30000);
+}
+
 function deep(o){return JSON.parse(JSON.stringify(o));}
 
 // ── FORMAT ────────────────────────────────────────────────
@@ -1543,6 +1607,7 @@ const _t=localStorage.getItem('mf10_t')||'light';
 document.documentElement.setAttribute('data-theme',_t);
 document.getElementById('tbtn').textContent=_t==='dark'?'🌙':'☀️';
 renderOv();
+_startSync(); // start polling Firebase every 30s
 
 // ── SERVICE WORKER ─────────────────────────────────────────
 if('serviceWorker' in navigator){
