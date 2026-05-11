@@ -754,23 +754,31 @@ function _push(){
     .then(()=>syncDot('saved')).catch(()=>syncDot('error'));
 }
 
-// Poll every 30s — picks up changes made on other devices
+// Poll every 5s — picks up changes made on other devices
 function _startSync(){
-  setInterval(()=>{
-    fetch(DB).then(r=>r.json()).then(data=>{
-      if(!data||typeof data!=='object')return;
-      if(JSON.stringify(data)===JSON.stringify(D))return; // no change
-      D=data;
-      if(!D.extraIncome)D.extraIncome=[];
-      if(!D.template)D.template=[];
-      localStorage.setItem('mf10',JSON.stringify(D));
-      syncDot('saved');
-      const v=document.querySelector('.view.active')?.id?.replace('view-','');
-      if(v==='overview')renderOv();
-      if(v==='expenses')renderEx();
-      if(v==='savings')renderSav();
-    }).catch(()=>{});
-  },30000);
+  // Sync immediately when user returns to the app (switches tabs or opens from background)
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')_fetchAndUpdate();
+  });
+  window.addEventListener('focus',()=>_fetchAndUpdate());
+  // Also poll every 5 seconds
+  setInterval(_fetchAndUpdate,5000);
+}
+
+function _fetchAndUpdate(){
+  fetch(DB).then(r=>r.json()).then(data=>{
+    if(!data||typeof data!=='object')return;
+    if(JSON.stringify(data)===JSON.stringify(D))return; // no change
+    D=data;
+    if(!D.extraIncome)D.extraIncome=[];
+    if(!D.template)D.template=[];
+    localStorage.setItem('mf10',JSON.stringify(D));
+    syncDot('saved');
+    const v=document.querySelector('.view.active')?.id?.replace('view-','');
+    if(v==='overview')renderOv();
+    if(v==='expenses')renderEx();
+    if(v==='savings')renderSav();
+  }).catch(()=>{});
 }
 
 function deep(o){return JSON.parse(JSON.stringify(o));}
